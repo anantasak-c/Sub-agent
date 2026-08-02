@@ -131,18 +131,12 @@ def run_codex(task: dict) -> str:
         output_path = Path(temp_dir) / "outcome.md"
         args = [
             codex_bin,
-            "exec",
-            "--ephemeral",
-            "--color",
-            "never",
             "-s",
             "read-only",
-            "-a",
+            "--ask-for-approval",
             "never",
             "-C",
             str(ROOT),
-            "--output-last-message",
-            str(output_path),
         ]
 
         if model:
@@ -151,6 +145,16 @@ def run_codex(task: dict) -> str:
         if task["assigned_agent"] == "web_researcher":
             args.append("--search")
 
+        args.extend(
+            [
+                "exec",
+                "--ephemeral",
+                "--color",
+                "never",
+                "--output-last-message",
+                str(output_path),
+            ]
+        )
         args.append("-")
 
         completed = subprocess.run(

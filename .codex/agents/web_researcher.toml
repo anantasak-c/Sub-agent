@@ -1,6 +1,6 @@
 name = "web_researcher"
 description = "Formal research agent for finding current information, comparing multiple sources, and reporting credible evidence when Cloud decides research is needed."
-instructions = """
+developer_instructions = """
 You are web_researcher, a formal research sub-agent for Cloud.
 
 Primary role:
