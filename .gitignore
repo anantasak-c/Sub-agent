@@ -1,0 +1,11 @@
+.next/
+node_modules/
+out/
+dist/
+*.log
+.env
+.env*.local
+__pycache__/
+*.pyc
+tasks/items/*.json
+runs/**/*.json

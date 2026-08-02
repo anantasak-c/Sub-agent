@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cloud Todo Dashboard</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>Cloud Todo Dashboard</h1>
+          <p>Capture tasks, assign the right agent, and prepare Codex run briefs.</p>
+        </div>
+        <div class="summary" aria-live="polite">
+          <span><strong id="totalCount">0</strong> tasks</span>
+          <span><strong id="dueCount">0</strong> due soon</span>
+          <span><strong id="unassignedCount">0</strong> unassigned</span>
+        </div>
+      </header>
+
+      <section class="task-composer" aria-labelledby="newTaskTitle">
+        <h2 id="newTaskTitle">New Task</h2>
+        <form id="taskForm" class="task-form">
+          <label>
+            Title
+            <input name="title" required maxlength="120" placeholder="Research AI note-taking tools">
+          </label>
+          <label>
+            Desired outcome
+            <input name="desired_outcome" maxlength="240" placeholder="A short comparison and recommendation">
+          </label>
+          <label class="wide">
+            Details
+            <textarea name="details" rows="4" placeholder="What should Cloud understand before assigning this task?"></textarea>
+          </label>
+          <label>
+            Type
+            <select name="type">
+              <option value="do_now">Do now</option>
+              <option value="do_later">Do later</option>
+              <option value="research">Research</option>
+              <option value="debate">Debate idea</option>
+              <option value="teach_me">Teach me</option>
+              <option value="monitor_changes">Monitor changes</option>
+              <option value="reminder">Reminder</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status">
+              <option value="inbox">Inbox</option>
+              <option value="ready">Ready</option>
+              <option value="blocked">Blocked</option>
+              <option value="in_progress">In progress</option>
+              <option value="waiting_approval">Waiting approval</option>
+              <option value="done">Done</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select name="priority">
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+          <label>
+            Due date
+            <input name="due_date" type="date">
+          </label>
+          <label class="wide">
+            Next action
+            <input name="next_action" maxlength="240" placeholder="Optional. Leave blank for Cloud to suggest one.">
+          </label>
+          <button type="submit">Add task</button>
+        </form>
+      </section>
+
+      <section class="dashboard-grid">
+        <div class="task-list-panel">
+          <div class="panel-heading">
+            <h2>Tasks</h2>
+            <div class="filters">
+              <input id="searchInput" type="search" placeholder="Search">
+              <select id="typeFilter" aria-label="Filter by type">
+                <option value="">All types</option>
+                <option value="do_now">Do now</option>
+                <option value="do_later">Do later</option>
+                <option value="research">Research</option>
+                <option value="debate">Debate idea</option>
+                <option value="teach_me">Teach me</option>
+                <option value="monitor_changes">Monitor changes</option>
+                <option value="reminder">Reminder</option>
+              </select>
+              <select id="statusFilter" aria-label="Filter by status">
+                <option value="">All statuses</option>
+                <option value="inbox">Inbox</option>
+                <option value="ready">Ready</option>
+                <option value="blocked">Blocked</option>
+                <option value="in_progress">In progress</option>
+                <option value="waiting_approval">Waiting approval</option>
+                <option value="done">Done</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <select id="agentFilter" aria-label="Filter by agent">
+                <option value="">All agents</option>
+                <option value="cloud">Cloud</option>
+                <option value="web_researcher">web_researcher</option>
+                <option value="idea_debater">idea_debater</option>
+                <option value="teacher">teacher</option>
+                <option value="unassigned">Unassigned</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Due</th>
+                  <th>Agent</th>
+                </tr>
+              </thead>
+              <tbody id="taskRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="detail-panel" aria-live="polite">
+          <div class="panel-heading">
+            <h2>Task Detail</h2>
+            <button id="createRunBtn" type="button" disabled>Create run</button>
+          </div>
+          <div id="emptyState" class="empty-state">Select a task to inspect assignment, next action, and run history.</div>
+          <div id="taskDetail" class="task-detail" hidden></div>
+          <div id="runHistory" class="run-history" hidden></div>
+        </aside>
+      </section>
+    </main>
+
+    <template id="taskDetailTemplate">
+      <dl>
+        <div><dt>Task ID</dt><dd data-field="task_id"></dd></div>
+        <div><dt>Title</dt><dd data-field="title"></dd></div>
+        <div><dt>Details</dt><dd data-field="details"></dd></div>
+        <div><dt>Desired outcome</dt><dd data-field="desired_outcome"></dd></div>
+        <div><dt>Assignment reason</dt><dd data-field="assignment_reason"></dd></div>
+        <div><dt>Next action</dt><dd data-field="next_action"></dd></div>
+      </dl>
+    </template>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
