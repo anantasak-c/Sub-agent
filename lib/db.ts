@@ -1,6 +1,5 @@
 import { neon } from "@neondatabase/serverless";
 import { assignTask } from "@/lib/assignment";
-import { runAssignedAgent } from "@/lib/agent-runner";
 import { safeTaskId, type TaskInput } from "@/lib/validation";
 import type { AssignedAgent, RunBrief, Task, TaskRun } from "@/lib/types";
 
@@ -248,51 +247,17 @@ export async function createRun(taskId: string): Promise<{ task: Task; run: Task
       ${runId},
       ${task.task_id},
       ${timestamp},
-      ${"running"},
+      ${"queued_for_cloud"},
       ${task.assigned_agent},
       ${JSON.stringify(brief)}::jsonb
     )
   `;
 
-  await sql`
-    UPDATE tasks
-    SET status = ${"in_progress"}, updated_at = ${timestamp}
-    WHERE task_id = ${task.task_id}
-  `;
-
-  let runStatus: TaskRun["status"] = "completed";
-  let result = "";
-  let errorMessage = "";
-  const completedAt = nowIso();
-
-  try {
-    const agentResult = await runAssignedAgent(task);
-    result = agentResult.result;
-  } catch (error) {
-    runStatus = "failed";
-    errorMessage = error instanceof Error ? error.message : "Agent run failed";
-  }
-
-  await sql`
-    UPDATE task_runs
-    SET
-      status = ${runStatus},
-      result = ${result},
-      error = ${errorMessage},
-      completed_at = ${completedAt}
-    WHERE task_id = ${task.task_id} AND run_id = ${runId}
-  `;
-
-  const nextStatus =
-    runStatus === "completed"
-      ? "done"
-      : task.assigned_agent === "unassigned"
-        ? "waiting_approval"
-        : "blocked";
+  const nextStatus = task.assigned_agent === "unassigned" ? "waiting_approval" : "ready";
 
   await sql`
     UPDATE tasks
-    SET status = ${nextStatus}, updated_at = ${completedAt}
+    SET status = ${nextStatus}, updated_at = ${timestamp}
     WHERE task_id = ${task.task_id}
   `;
 
@@ -320,4 +285,134 @@ export async function listRuns(taskId: string): Promise<TaskRun[]> {
     ORDER BY created_at DESC
   `) as DbRow[];
   return rows.map((row) => normalizeRun(row));
+}
+
+export async function getNextQueuedRun(): Promise<{ task: Task; run: TaskRun } | null> {
+  await ensureSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      t.task_id,
+      t.title,
+      t.details,
+      t.desired_outcome,
+      t.type,
+      t.status,
+      t.priority,
+      t.due_date,
+      t.assigned_agent,
+      t.assignment_reason,
+      t.next_action,
+      t.created_at,
+      t.updated_at,
+      ARRAY[r.run_id]::TEXT[] AS run_history,
+      r.run_id AS runner_run_id,
+      r.created_at AS runner_created_at,
+      r.status AS runner_status,
+      r.assigned_agent AS runner_assigned_agent,
+      r.brief AS runner_brief,
+      r.result AS runner_result,
+      r.error AS runner_error,
+      r.completed_at AS runner_completed_at
+    FROM task_runs r
+    JOIN tasks t ON t.task_id = r.task_id
+    WHERE r.status = 'queued_for_cloud'
+    ORDER BY r.created_at ASC
+    LIMIT 1
+  `) as DbRow[];
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    task: normalizeTask(row),
+    run: normalizeRun({
+      run_id: row.runner_run_id,
+      task_id: row.task_id,
+      created_at: row.runner_created_at,
+      status: row.runner_status,
+      assigned_agent: row.runner_assigned_agent,
+      brief: row.runner_brief,
+      result: row.runner_result,
+      error: row.runner_error,
+      completed_at: row.runner_completed_at,
+    }),
+  };
+}
+
+export async function claimRun(
+  taskId: string,
+  runId: string,
+): Promise<{ task: Task; run: TaskRun } | null> {
+  await ensureSchema();
+  const sql = getSql();
+  const timestamp = nowIso();
+  const rows = (await sql`
+    UPDATE task_runs
+    SET status = 'running', result = '', error = '', completed_at = ''
+    WHERE task_id = ${taskId}
+      AND run_id = ${runId}
+      AND status = 'queued_for_cloud'
+    RETURNING *
+  `) as DbRow[];
+
+  if (!rows[0]) {
+    return null;
+  }
+
+  await sql`
+    UPDATE tasks
+    SET status = 'in_progress', updated_at = ${timestamp}
+    WHERE task_id = ${taskId}
+  `;
+
+  const task = await getTask(taskId);
+  return task ? { task, run: normalizeRun(rows[0]) } : null;
+}
+
+export async function completeRun(
+  taskId: string,
+  runId: string,
+  status: "completed" | "failed",
+  result: string,
+  error: string,
+): Promise<{ task: Task; run: TaskRun } | null> {
+  await ensureSchema();
+  const sql = getSql();
+  const completedAt = nowIso();
+  const runRows = (await sql`
+    UPDATE task_runs
+    SET
+      status = ${status},
+      result = ${result},
+      error = ${error},
+      completed_at = ${completedAt}
+    WHERE task_id = ${taskId}
+      AND run_id = ${runId}
+      AND status = 'running'
+    RETURNING *
+  `) as DbRow[];
+
+  const run = runRows[0] ? normalizeRun(runRows[0]) : null;
+  if (!run) {
+    return null;
+  }
+
+  const nextTaskStatus =
+    status === "completed"
+      ? "done"
+      : run.assigned_agent === "unassigned"
+        ? "waiting_approval"
+        : "blocked";
+
+  await sql`
+    UPDATE tasks
+    SET status = ${nextTaskStatus}, updated_at = ${completedAt}
+    WHERE task_id = ${taskId}
+  `;
+
+  const task = await getTask(taskId);
+  return task ? { task, run } : null;
 }

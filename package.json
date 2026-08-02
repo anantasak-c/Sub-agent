@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "runner": "python3 scripts/local-runner.py",
+    "runner:once": "python3 scripts/local-runner.py --once",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

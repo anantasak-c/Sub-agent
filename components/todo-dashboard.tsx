@@ -187,11 +187,7 @@ export function TodoDashboard() {
         current.map((task) => (task.task_id === data.task.task_id ? data.task : task)),
       );
       setRuns((current) => [data.run, ...current]);
-      setMessage(
-        data.run.status === "completed"
-          ? `Run ${data.run.run_id} completed and outcome saved.`
-          : `Run ${data.run.run_id} failed. Check run history for details.`,
-      );
+      setMessage(`Run ${data.run.run_id} queued for the local runner.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to create run");
     } finally {

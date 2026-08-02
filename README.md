@@ -27,17 +27,25 @@ Those files are not used by the hosted Next.js app.
 
 ## Environment
 
-Create a Neon Postgres database and set this Vercel environment variable:
+Create a Neon Postgres database and set these Vercel environment variables:
 
 ```text
 DATABASE_URL=postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require
-OPENAI_API_KEY=sk-proj...
-OPENAI_MODEL=gpt-5
+CLOUD_RUNNER_TOKEN=generate-a-long-random-token
 ```
 
 Use `.env.example` as the local template.
 
-`OPENAI_API_KEY` is required for automatic agent runs. If it is missing, the dashboard still creates a run and saves a clear error in run history.
+The local runner does not need direct database access. It needs the deployed dashboard URL and the same runner token in `.env.local`:
+
+```text
+CLOUD_RUNNER_BASE_URL=https://sub-agent-cyan.vercel.app
+CLOUD_RUNNER_TOKEN=the-same-token-set-on-vercel
+CLOUD_RUNNER_INTERVAL_MS=10000
+CLOUD_RUNNER_MODEL=gpt-5
+```
+
+Do not commit `.env.local`.
 
 ## Local Development
 
@@ -56,11 +64,36 @@ Open:
 http://localhost:3000
 ```
 
+## Local Runner
+
+The hosted dashboard queues runs in Neon. The PC local runner claims queued runs, executes the assigned agent locally, and saves the outcome or error back to `task_runs`.
+
+Run continuously:
+
+```bash
+python3 scripts/local-runner.py
+```
+
+Run one queued item and exit:
+
+```bash
+python3 scripts/local-runner.py --once
+```
+
+Default behavior:
+
+- `web_researcher` runs through `codex exec --search`
+- other agents run through `codex exec`
+- Codex runs in read-only sandbox mode
+- the runner never sends messages, deletes data, deploys, buys, subscribes, creates agents, or modifies external systems
+- outcome is saved in run history as `result`
+- failures are saved in run history as `error`
+
 ## Deploy Flow
 
 1. Connect the GitHub repository `anantasak-c/Sub-agent` to Vercel project `sub-agent`.
 2. Add or connect Neon Postgres through Vercel Marketplace.
-3. Ensure `DATABASE_URL` exists for Production.
+3. Ensure `DATABASE_URL` and `CLOUD_RUNNER_TOKEN` exist for Production.
 4. Push `main`.
 5. Deploy on Vercel.
 
@@ -70,4 +103,4 @@ Cloud must ask for explicit approval before `git push` or production deploy.
 
 The dashboard must not send messages, delete data, publish, deploy, buy, subscribe, modify external systems, or create new agents without explicit user approval.
 
-`Run agent` creates a run, calls the assigned agent through the OpenAI Responses API, and saves either the outcome or the error back to run history.
+`Run agent` creates a queued run. The local runner on the user's PC executes it and saves either the outcome or the error back to run history.

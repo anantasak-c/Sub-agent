@@ -106,9 +106,11 @@ Cloud Todo Dashboard มีสองบริบท:
 - เวอร์ชัน local legacy ใช้ `app.py` และเก็บ task/run เป็นไฟล์ใน `tasks/items/` และ `runs/<task-id>/`
 - เวอร์ชัน production ใช้ Next.js บน Vercel และเก็บ task/run ใน Neon Postgres ผ่าน `DATABASE_URL`
 
-Dashboard ใช้เพื่อจัดคิว เตรียม brief และแนะนำการมอบหมายงานเท่านั้น ไม่ใช่ระบบรัน agent อัตโนมัติ เมื่อมีการกดสร้าง run ให้ Cloud อ่าน brief แล้วตัดสินใจมอบหมายงานต่อภายใน Codex
+Dashboard ใช้เพื่อจัดคิว เตรียม brief และแนะนำการมอบหมายงาน เมื่อมีการกด `Run agent` ระบบจะสร้าง run สถานะ `queued_for_cloud` ใน Neon Postgres แล้ว local runner บนเครื่องผู้ใช้เป็นตัว claim งาน รัน agent ผ่าน Codex CLI และบันทึก outcome หรือ error กลับเข้า run history
 
 ถ้างานไม่ตรงกับสมาชิกทีมที่มี ให้ตั้งเป็น `unassigned` และเสนอสมาชิกทีมใหม่ได้ แต่ห้ามสร้าง agent ใหม่จนกว่าผู้ใช้จะอนุมัติชัดเจน
+
+local runner ต้องทำงานภายใต้ approval boundary เดิมเสมอ ห้ามส่งข้อความ ลบข้อมูล deploy ซื้อ สมัครบริการ สร้าง agent ใหม่ หรือแก้ระบบภายนอกโดยไม่ได้รับอนุมัติจากผู้ใช้
 
 ก่อน `git push` หรือ deploy production ต้องขออนุมัติจากผู้ใช้ก่อนเสมอ
 
