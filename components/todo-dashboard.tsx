@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import type { Task, TaskRun } from "@/lib/types";
 
 const labels: Record<string, string> = {
@@ -30,6 +30,112 @@ const labels: Record<string, string> = {
 
 function formatLabel(value: string) {
   return labels[value] || value || "-";
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /(\*\*([^*]+)\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    if (match[2]) {
+      nodes.push(<strong key={`${match.index}-bold`}>{match[2]}</strong>);
+    } else if (match[3] && match[4]) {
+      nodes.push(
+        <a href={match[4]} key={`${match.index}-link`} rel="noreferrer" target="_blank">
+          {match[3]}
+        </a>,
+      );
+    }
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
+function MarkdownOutput({ text }: { text: string }) {
+  const blocks: ReactNode[] = [];
+  const lines = text.split(/\r?\n/);
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+
+    if (!line) {
+      index += 1;
+      continue;
+    }
+
+    const heading = /^(#{1,4})\s+(.+)$/.exec(line);
+    if (heading) {
+      const level = Math.min(heading[1].length, 4);
+      const content = renderInlineMarkdown(heading[2]);
+      if (level === 1) {
+        blocks.push(<h2 key={`heading-${index}`}>{content}</h2>);
+      } else if (level === 2) {
+        blocks.push(<h3 key={`heading-${index}`}>{content}</h3>);
+      } else if (level === 3) {
+        blocks.push(<h4 key={`heading-${index}`}>{content}</h4>);
+      } else {
+        blocks.push(<h5 key={`heading-${index}`}>{content}</h5>);
+      }
+      index += 1;
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const items: ReactNode[] = [];
+      while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
+        const item = lines[index].trim().replace(/^[-*]\s+/, "");
+        items.push(<li key={`li-${index}`}>{renderInlineMarkdown(item)}</li>);
+        index += 1;
+      }
+      blocks.push(<ul key={`ul-${index}`}>{items}</ul>);
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      const items: ReactNode[] = [];
+      while (index < lines.length && /^\d+\.\s+/.test(lines[index].trim())) {
+        const item = lines[index].trim().replace(/^\d+\.\s+/, "");
+        items.push(<li key={`oli-${index}`}>{renderInlineMarkdown(item)}</li>);
+        index += 1;
+      }
+      blocks.push(<ol key={`ol-${index}`}>{items}</ol>);
+      continue;
+    }
+
+    const paragraphLines = [line];
+    index += 1;
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !/^(#{1,4})\s+/.test(lines[index].trim()) &&
+      !/^[-*]\s+/.test(lines[index].trim()) &&
+      !/^\d+\.\s+/.test(lines[index].trim())
+    ) {
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+
+    blocks.push(
+      <p key={`p-${index}`}>
+        {renderInlineMarkdown(paragraphLines.join(" ").replace(/\s{2,}/g, " "))}
+      </p>,
+    );
+  }
+
+  return <div className="markdown-output">{blocks}</div>;
 }
 
 function dueState(dueDate: string) {
@@ -480,7 +586,7 @@ export function TodoDashboard() {
                       {run.result ? (
                         <div className="run-outcome">
                           <h4>Outcome</h4>
-                          <pre>{run.result}</pre>
+                          <MarkdownOutput text={run.result} />
                         </div>
                       ) : null}
                       {run.error ? (
@@ -489,7 +595,10 @@ export function TodoDashboard() {
                           <pre>{run.error}</pre>
                         </div>
                       ) : null}
-                      <code>{JSON.stringify(run.brief, null, 2)}</code>
+                      <details className="run-brief">
+                        <summary>Brief</summary>
+                        <code>{JSON.stringify(run.brief, null, 2)}</code>
+                      </details>
                     </div>
                   ))
                 )}
