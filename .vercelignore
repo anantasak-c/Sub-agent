@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
+app.py
+public/
 tasks/items/*.json
 runs/**/*.json
 .env
