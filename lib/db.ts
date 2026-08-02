@@ -3,6 +3,8 @@ import { assignTask } from "@/lib/assignment";
 import { safeTaskId, type TaskInput } from "@/lib/validation";
 import type { AssignedAgent, RunBrief, Task, TaskRun } from "@/lib/types";
 
+type DbRow = Record<string, unknown>;
+
 let sqlClient: ReturnType<typeof neon> | null = null;
 let schemaReady = false;
 
@@ -101,7 +103,7 @@ async function uniqueTaskId(title: string): Promise<string> {
   let counter = 2;
 
   while (true) {
-    const rows = await sql`SELECT task_id FROM tasks WHERE task_id = ${candidate} LIMIT 1`;
+    const rows = (await sql`SELECT task_id FROM tasks WHERE task_id = ${candidate} LIMIT 1`) as DbRow[];
     if (rows.length === 0) {
       return candidate;
     }
@@ -113,7 +115,7 @@ async function uniqueTaskId(title: string): Promise<string> {
 export async function listTasks(): Promise<Task[]> {
   await ensureSchema();
   const sql = getSql();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT
       t.*,
       COALESCE(
@@ -132,14 +134,14 @@ export async function listTasks(): Promise<Task[]> {
       END,
       NULLIF(t.due_date, '') ASC NULLS LAST,
       t.created_at DESC
-  `;
+  `) as DbRow[];
   return rows.map((row) => normalizeTask(row));
 }
 
 export async function getTask(taskId: string): Promise<Task | null> {
   await ensureSchema();
   const sql = getSql();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT
       t.*,
       COALESCE(
@@ -151,7 +153,7 @@ export async function getTask(taskId: string): Promise<Task | null> {
     WHERE t.task_id = ${taskId}
     GROUP BY t.task_id
     LIMIT 1
-  `;
+  `) as DbRow[];
   return rows[0] ? normalizeTask(rows[0]) : null;
 }
 
@@ -163,7 +165,7 @@ export async function createTask(input: TaskInput): Promise<Task> {
   const nextAction = input.next_action || assignment.next_action;
   const timestamp = nowIso();
 
-  const rows = await sql`
+  const rows = (await sql`
     INSERT INTO tasks (
       task_id,
       title,
@@ -195,7 +197,7 @@ export async function createTask(input: TaskInput): Promise<Task> {
       ${timestamp}
     )
     RETURNING *, ARRAY[]::TEXT[] AS run_history
-  `;
+  `) as DbRow[];
 
   return normalizeTask(rows[0]);
 }
@@ -223,7 +225,7 @@ export async function createRun(taskId: string): Promise<{ task: Task; run: Task
       "No external actions, new agent creation, publishing, deletion, purchase, subscription, or messaging without explicit user approval.",
   };
 
-  const runRows = await sql`
+  const runRows = (await sql`
     INSERT INTO task_runs (
       run_id,
       task_id,
@@ -241,7 +243,7 @@ export async function createRun(taskId: string): Promise<{ task: Task; run: Task
       ${JSON.stringify(brief)}::jsonb
     )
     RETURNING *
-  `;
+  `) as DbRow[];
 
   const nextStatus = task.assigned_agent === "unassigned" ? "waiting_approval" : "ready";
   await sql`
@@ -260,11 +262,11 @@ export async function createRun(taskId: string): Promise<{ task: Task; run: Task
 export async function listRuns(taskId: string): Promise<TaskRun[]> {
   await ensureSchema();
   const sql = getSql();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT *
     FROM task_runs
     WHERE task_id = ${taskId}
     ORDER BY created_at DESC
-  `;
+  `) as DbRow[];
   return rows.map((row) => normalizeRun(row));
 }
