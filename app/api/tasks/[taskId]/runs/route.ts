@@ -1,6 +1,8 @@
 import { createRun, listRuns } from "@/lib/db";
 import { safeTaskId } from "@/lib/validation";
 
+export const maxDuration = 60;
+
 type RouteContext = {
   params: Promise<{
     taskId: string;

@@ -31,9 +31,13 @@ Create a Neon Postgres database and set this Vercel environment variable:
 
 ```text
 DATABASE_URL=postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require
+OPENAI_API_KEY=sk-proj...
+OPENAI_MODEL=gpt-5
 ```
 
 Use `.env.example` as the local template.
+
+`OPENAI_API_KEY` is required for automatic agent runs. If it is missing, the dashboard still creates a run and saves a clear error in run history.
 
 ## Local Development
 
@@ -66,4 +70,4 @@ Cloud must ask for explicit approval before `git push` or production deploy.
 
 The dashboard must not send messages, delete data, publish, deploy, buy, subscribe, modify external systems, or create new agents without explicit user approval.
 
-`Create run` prepares a brief for Cloud. It does not run agents automatically.
+`Run agent` creates a run, calls the assigned agent through the OpenAI Responses API, and saves either the outcome or the error back to run history.

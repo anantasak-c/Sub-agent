@@ -64,7 +64,10 @@ export type TaskRun = {
   run_id: string;
   task_id: string;
   created_at: string;
-  status: "queued_for_cloud";
+  status: "queued_for_cloud" | "running" | "completed" | "failed";
   assigned_agent: AssignedAgent;
   brief: RunBrief;
+  result: string;
+  error: string;
+  completed_at: string;
 };

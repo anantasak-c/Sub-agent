@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS task_runs (
   status TEXT NOT NULL,
   assigned_agent TEXT NOT NULL,
   brief JSONB NOT NULL,
+  result TEXT NOT NULL DEFAULT '',
+  error TEXT NOT NULL DEFAULT '',
+  completed_at TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (task_id, run_id)
 );
 

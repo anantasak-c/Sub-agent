@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { assignTask } from "@/lib/assignment";
+import { runAssignedAgent } from "@/lib/agent-runner";
 import { safeTaskId, type TaskInput } from "@/lib/validation";
 import type { AssignedAgent, RunBrief, Task, TaskRun } from "@/lib/types";
 
@@ -56,9 +57,15 @@ async function ensureSchema() {
       status TEXT NOT NULL,
       assigned_agent TEXT NOT NULL,
       brief JSONB NOT NULL,
+      result TEXT NOT NULL DEFAULT '',
+      error TEXT NOT NULL DEFAULT '',
+      completed_at TEXT NOT NULL DEFAULT '',
       PRIMARY KEY (task_id, run_id)
     )
   `;
+  await sql`ALTER TABLE task_runs ADD COLUMN IF NOT EXISTS result TEXT NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE task_runs ADD COLUMN IF NOT EXISTS error TEXT NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE task_runs ADD COLUMN IF NOT EXISTS completed_at TEXT NOT NULL DEFAULT ''`;
   await sql`
     CREATE INDEX IF NOT EXISTS task_runs_task_id_created_at_idx
       ON task_runs (task_id, created_at DESC)
@@ -90,9 +97,12 @@ function normalizeRun(row: Record<string, unknown>): TaskRun {
     run_id: String(row.run_id),
     task_id: String(row.task_id),
     created_at: String(row.created_at),
-    status: "queued_for_cloud",
+    status: row.status as TaskRun["status"],
     assigned_agent: row.assigned_agent as AssignedAgent,
     brief: row.brief as RunBrief,
+    result: String(row.result ?? ""),
+    error: String(row.error ?? ""),
+    completed_at: String(row.completed_at ?? ""),
   };
 }
 
@@ -225,7 +235,7 @@ export async function createRun(taskId: string): Promise<{ task: Task; run: Task
       "No external actions, new agent creation, publishing, deletion, purchase, subscription, or messaging without explicit user approval.",
   };
 
-  const runRows = (await sql`
+  await sql`
     INSERT INTO task_runs (
       run_id,
       task_id,
@@ -238,19 +248,60 @@ export async function createRun(taskId: string): Promise<{ task: Task; run: Task
       ${runId},
       ${task.task_id},
       ${timestamp},
-      ${"queued_for_cloud"},
+      ${"running"},
       ${task.assigned_agent},
       ${JSON.stringify(brief)}::jsonb
     )
-    RETURNING *
-  `) as DbRow[];
+  `;
 
-  const nextStatus = task.assigned_agent === "unassigned" ? "waiting_approval" : "ready";
   await sql`
     UPDATE tasks
-    SET status = ${nextStatus}, updated_at = ${timestamp}
+    SET status = ${"in_progress"}, updated_at = ${timestamp}
     WHERE task_id = ${task.task_id}
   `;
+
+  let runStatus: TaskRun["status"] = "completed";
+  let result = "";
+  let errorMessage = "";
+  const completedAt = nowIso();
+
+  try {
+    const agentResult = await runAssignedAgent(task);
+    result = agentResult.result;
+  } catch (error) {
+    runStatus = "failed";
+    errorMessage = error instanceof Error ? error.message : "Agent run failed";
+  }
+
+  await sql`
+    UPDATE task_runs
+    SET
+      status = ${runStatus},
+      result = ${result},
+      error = ${errorMessage},
+      completed_at = ${completedAt}
+    WHERE task_id = ${task.task_id} AND run_id = ${runId}
+  `;
+
+  const nextStatus =
+    runStatus === "completed"
+      ? "done"
+      : task.assigned_agent === "unassigned"
+        ? "waiting_approval"
+        : "blocked";
+
+  await sql`
+    UPDATE tasks
+    SET status = ${nextStatus}, updated_at = ${completedAt}
+    WHERE task_id = ${task.task_id}
+  `;
+
+  const runRows = (await sql`
+    SELECT *
+    FROM task_runs
+    WHERE task_id = ${task.task_id} AND run_id = ${runId}
+    LIMIT 1
+  `) as DbRow[];
 
   const updatedTask = await getTask(task.task_id);
   return {

@@ -18,6 +18,10 @@ const labels: Record<string, string> = {
   waiting_approval: "Waiting approval",
   done: "Done",
   cancelled: "Cancelled",
+  queued_for_cloud: "Queued",
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
   low: "Low",
   medium: "Medium",
   high: "High",
@@ -89,6 +93,7 @@ export function TodoDashboard() {
   const [agentFilter, setAgentFilter] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [runningRun, setRunningRun] = useState(false);
 
   const selectedTask = tasks.find((task) => task.task_id === selectedTaskId);
 
@@ -173,6 +178,8 @@ export function TodoDashboard() {
     }
 
     try {
+      setRunningRun(true);
+      setMessage("Running assigned agent...");
       const data = await api<CreateRunResponse>(`/api/tasks/${selectedTaskId}/runs`, {
         method: "POST",
       });
@@ -180,9 +187,15 @@ export function TodoDashboard() {
         current.map((task) => (task.task_id === data.task.task_id ? data.task : task)),
       );
       setRuns((current) => [data.run, ...current]);
-      setMessage(`Run ${data.run.run_id} created for Cloud.`);
+      setMessage(
+        data.run.status === "completed"
+          ? `Run ${data.run.run_id} completed and outcome saved.`
+          : `Run ${data.run.run_id} failed. Check run history for details.`,
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to create run");
+    } finally {
+      setRunningRun(false);
     }
   }
 
@@ -412,8 +425,12 @@ export function TodoDashboard() {
         <aside className="detail-panel" aria-live="polite">
           <div className="panel-heading">
             <h2>Task Detail</h2>
-            <button type="button" disabled={!selectedTask} onClick={() => void createRun()}>
-              Create run
+            <button
+              type="button"
+              disabled={!selectedTask || runningRun}
+              onClick={() => void createRun()}
+            >
+              {runningRun ? "Running..." : "Run agent"}
             </button>
           </div>
 
@@ -459,9 +476,23 @@ export function TodoDashboard() {
                 ) : (
                   runs.map((run) => (
                     <div className="run-item" key={run.run_id}>
-                      <strong>
-                        {run.run_id} - {run.status}
-                      </strong>
+                      <div className="run-heading">
+                        <strong>{run.run_id}</strong>
+                        <span className={`badge run-${run.status}`}>{formatLabel(run.status)}</span>
+                      </div>
+                      {run.completed_at ? <span className="run-time">{run.completed_at}</span> : null}
+                      {run.result ? (
+                        <div className="run-outcome">
+                          <h4>Outcome</h4>
+                          <pre>{run.result}</pre>
+                        </div>
+                      ) : null}
+                      {run.error ? (
+                        <div className="run-error">
+                          <h4>Error</h4>
+                          <pre>{run.error}</pre>
+                        </div>
+                      ) : null}
                       <code>{JSON.stringify(run.brief, null, 2)}</code>
                     </div>
                   ))

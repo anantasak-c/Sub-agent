@@ -338,9 +338,75 @@ dd {
   background: #fbfcfd;
 }
 
+.run-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.run-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.run-time {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.run-completed {
+  background: #e2f1e9;
+  color: var(--success);
+}
+
+.run-running,
+.run-queued_for_cloud {
+  background: #e2eff4;
+  color: var(--accent-strong);
+}
+
+.run-failed {
+  background: #f9e3e3;
+  color: var(--danger);
+}
+
+.run-outcome,
+.run-error {
+  margin-top: 10px;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.run-outcome {
+  border: 1px solid #cfe4d9;
+  background: #f4faf7;
+}
+
+.run-error {
+  border: 1px solid #eed0d0;
+  background: #fff7f7;
+}
+
+.run-outcome h4,
+.run-error h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.run-outcome pre,
+.run-error pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
 .run-item code {
   display: block;
-  margin-top: 6px;
+  margin-top: 10px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
