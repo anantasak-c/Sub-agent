@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 tasks/items/*.json
 runs/**/*.json
+.vercel
